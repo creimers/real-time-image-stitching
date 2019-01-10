@@ -55,6 +55,7 @@ class Stitcher:
 
         self.matcher_obj = Matcher()
         self.homography_cache = {}
+        self.overlay_cache = {}
 
         self.count = number_of_images
 
@@ -67,8 +68,7 @@ class Stitcher:
         """
         stitches the images into a panorama
         """
-        # TODO this transformation might not be necessary
-        self.images = [cv2.cvtColor(i, cv2.COLOR_RGB2RGBA) for i in images]
+        self.images = images
 
         self.prepare_lists()
 
@@ -185,39 +185,26 @@ class Stitcher:
                 borderMode=cv2.BORDER_TRANSPARENT,
             )
 
-            mask = np.zeros((result.shape[0], result.shape[1], 4), dtype="uint8")
+            mask = np.zeros((result.shape[0], result.shape[1], 3), dtype="uint8")
             mask[0 : imageLeft.shape[0], 0 : imageLeft.shape[1]] = imageLeft
-            mask_rgb = mask[:, :, :3]  # Grab the BRG planes
-            result = self.blend_transparent(mask_rgb, result)
+            self.result = self.blend_images(mask, result, str(i))
 
-            # TODO maybe this step can be put in to blend_transparent?
-            self.result = cv2.cvtColor(result, cv2.COLOR_RGB2RGBA)
-
-    def blend_transparent(self, background, foreground):
+    def blend_images(self, background, foreground, i):
         """
-        code obtained from here: 
-        https://stackoverflow.com/questions/36921496/how-to-join-png-with-alpha-transparency-in-a-frame-in-realtime/37198079#37198079
+        inspired by this answer:
+
+        https://stackoverflow.com/a/54129424/1909378
         """
-        # Split out the transparency mask from the colour info
-        overlay_img = foreground[:, :, :3]  # Grab the BRG planes
-        overlay_mask = foreground[:, :, 3:]  # And the alpha plane
 
-        # Again calculate the inverse mask
-        background_mask = 255 - overlay_mask
+        only_right = self.overlay_cache.get(i, None)
+        if only_right is None:
+            only_right = np.nonzero(
+                (np.sum(foreground, 2) != 0) * (np.sum(background, 2) == 0)
+            )
+            self.overlay_cache[i] = only_right
 
-        # Turn the masks into three channel, so we can use them as weights
-        overlay_mask = cv2.cvtColor(overlay_mask, cv2.COLOR_GRAY2BGR)
-        background_mask = cv2.cvtColor(background_mask, cv2.COLOR_GRAY2BGR)
-
-        # Create a masked out face image, and masked out overlay
-        # We convert the images to floating point in range 0.0 - 1.0
-        background_part = (background * (1 / 255.0)) * (background_mask * (1 / 255.0))
-        overlay_part = (overlay_img * (1 / 255.0)) * (overlay_mask * (1 / 255.0))
-
-        # And finally just add them together, and rescale it back to an 8bit integer image
-        return np.uint8(
-            cv2.addWeighted(background_part, 255.0, overlay_part, 255.0, 0.0)
-        )
+        background[only_right] = foreground[only_right]
+        return background
 
 
 if __name__ == "__main__":
