@@ -1,0 +1,15 @@
+astroid==2.1.0
+flake8==3.6.0
+imutils==0.5.2
+isort==4.3.4
+lazy-object-proxy==1.3.1
+mccabe==0.6.1
+numpy==1.15.4
+opencv-python==3.4.2.17
+opencv-contrib-python==3.4.2.17
+pycodestyle==2.4.0
+pyflakes==2.0.0
+pylint==2.2.2
+six==1.12.0
+typed-ast==1.1.1
+wrapt==1.10.11
